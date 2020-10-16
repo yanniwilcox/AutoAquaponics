@@ -60,7 +60,7 @@ Here I'm using a while loop so it stops after 12 times, but the things inside ca
 
 Other stuff about the loop...
 Assuming everything works, Logger.collect_data() can be run any number of times at any time. It will 
-only actually be sent to the database upon running Logger.
+only actually be sent to the database upon running Logger.log_data(), which is run here every 4 collect_data()'s
 """
 cnt = 0
 while cnt<12: 
