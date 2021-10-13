@@ -7,6 +7,10 @@ from tkinter import ttk, W, LEFT, END
 #initializations for video
 from PIL import Image, ImageTk
 
+import cProfile
+import pstats
+import io
+
 #uncomment later
 import cv2   #open source computer vision library
 cap = cv2.VideoCapture(0)
@@ -208,6 +212,9 @@ initialize_plots()
 ###ANIMATE FUNCTION, REMOVE LAST ITEM FROM MOST_RECENT_ANY LIST AND INSERT FRESHLY CALLED VALUE TO BE FIRST IN LIST
 def animate(ii):
 
+    profile = cProfile.Profile()
+    profile.enable()
+
     while True:
         most_recent_time_graphed = param_dict[param_list[0]] #first, pulls up first plot
         most_recent = reader.query_by_num(table="SensorData", num=1)
@@ -279,6 +286,18 @@ def animate(ii):
                     time_stream.pop()
                     current_plot.make_plot()
             break
+    profile.disable()
+    result = io.StringIO()
+    pstats.Stats(profile,stream=result).print_stats()
+    result=result.getvalue()
+    # chop the string into a csv-like buffer
+    result='ncalls'+result.split('ncalls')[-1]
+    result='\n'.join([','.join(line.rstrip().split(None,5)) for line in result.split('\n')])
+    # save it to disk
+    with open('test.csv', 'w+') as f:
+        #f=open(result.rsplit('.')[0]+'.csv','w')
+        f.write(result)
+        f.close()
 
                            
 #initialization
