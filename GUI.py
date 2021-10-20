@@ -202,6 +202,9 @@ def initialize_plots(): #intiailizes plots...
             #current_plot.make_plot()    
     reader.commit()
     initialize_plots = _plots_initialized
+    with open('test.csv', 'w', newline='') as _:
+        pass
+
 
 def _plots_initialized(): #ensures plots only intialized once though!
     pass
@@ -286,18 +289,23 @@ def animate(ii):
                     time_stream.pop()
                     current_plot.make_plot()
             break
-    profile.disable()
-    result = io.StringIO()
-    pstats.Stats(profile,stream=result).print_stats()
-    result=result.getvalue()
-    # chop the string into a csv-like buffer
-    result='ncalls'+result.split('ncalls')[-1]
-    result='\n'.join([','.join(line.rstrip().split(None,5)) for line in result.split('\n')])
-    # save it to disk
-    with open('test.csv', 'w+') as f:
-        #f=open(result.rsplit('.')[0]+'.csv','w')
-        f.write(result)
-        f.close()
+    if time_reader.minute == 50 and most_recent_time_graphed.tList[1].minute == 49:
+        profile.disable()
+        result = io.StringIO()
+        pstats.Stats(profile,stream=result).print_stats()
+        result=result.getvalue()
+        # chop the string into a csv-like buffer
+        result='ncalls'+result.split('ncalls')[-1]
+        result='\n'.join([','.join(line.rstrip().split(None,5)) for line in result.split('\n')])
+        # save it to disk
+        with open('test.csv', 'r') as f:
+            result = f.read() + 'hour: ' + str(time_reader.hour) + '\n' + result
+        
+        with open('test.csv', 'w+') as f:
+            f.write(result)
+            f.close()
+    else:
+        profile.disable()
 
                            
 #initialization
