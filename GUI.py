@@ -8,9 +8,9 @@ from tkinter import ttk, W, LEFT, END
 from PIL import Image, ImageTk
 
 #uncomment later
-import cv2   #open source computer vision library
+'''import cv2   #open source computer vision library
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 600)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 600)'''
 
 #import BLE stuff (uncomment 2 lines below if on computer)
 #from BLE import BLE
@@ -119,7 +119,7 @@ param_list = ['pH', 'TDS (ppm)', 'Rela. Humidity (%)', 'Air Temp (\N{DEGREE SIGN
 param_ylim = [(5, 9), (0, 1500), (20, 80), (15, 35), (15, 35), (0, 61)]
 #param_list = ['pH', 'Water Temp', 'Air Temp', 'Nitrate', 'TDS', 'DO', 'Ammonia', 'Phosphate', 'Humidity', 'Flow Rate', 'Water Level']
 live_dict = {}
-
+ys = [y for y in range(20)]
 
 ########################
 #this is for texting
@@ -171,31 +171,12 @@ class Sensor_Plot:
 
 def initialize_plots(): #intiailizes plots...
     global initialize_plots
-    try:
-        most_recent = reader.query_by_num(table="SensorData", num=100) #initializes plot up to 20 if possible if possible
-        for i, param in enumerate(param_list, 1):
-            tList = []
-            most_recent_any_size = []
-            for j in range(len(most_recent)):
-                #time_f = datetime.strptime(most_recent[j][0], "%m/%d/%Y %H:%M:%S")
-                time_f = datetime.datetime.fromtimestamp(most_recent[j][0])
-                tList.append(time_f)
-                most_recent_any_size.append(most_recent[j][i])
-
-            subplot = f.add_subplot(6, 2, i)  # sharex?
-            x_ax = f.get_axes()
-            
-            current_plot = Sensor_Plot(subplot, tList, x_ax[i-1], param_ylim[i-1], param, most_recent_any_size, 'b')
-            param_dict[param] = current_plot
-            current_plot.make_plot()
-                    
-    except: #if there is no data points available to plot, initialize the subplots
-        for i, param in enumerate(param_list, 1):
-            subplot = f.add_subplot(6, 2, i)
-            x_ax = f.get_axes()
-            current_plot = Sensor_Plot(subplot, [], x_ax[i-1], param_ylim[i-1], param, [], 'b')
-            param_dict[param] = current_plot
-            #current_plot.make_plot()    
+    xs = [x for x in range(20)]
+    for i, param in enumerate(param_list, 1):
+        subplot = f.add_subplot(6, 2, i)
+        subplot.set_ylim([0,500])
+        current_plot, = subplot.plot(xs, ys)
+        param_dict[param] = current_plot
     reader.commit()
     initialize_plots = _plots_initialized
 
@@ -204,81 +185,144 @@ def _plots_initialized(): #ensures plots only intialized once though!
 initialize_plots()
 
 
+def animate(ii, ys):
+    ys.append(ys[-1]+1)
+    ys.pop(0)
+    
+    # most_recent_time_graphed = param_dict[param_list[0]] #first, pulls up first plot
+    # most_recent = reader.query_by_num(table="SensorData", num=1)
+    
+    # config_settings = csv_read()
+    # c0, c1, c2 = config_dict['enable_text'], config_dict['num_config'], config_dict['provider_config']
+    # c3, c4, c5 = config_dict['email_config'], config_dict['upper_config'], config_dict['lower_config']
+    
+
+    for i, key in enumerate(param_dict, 1):
+        current_plot = param_dict[key]
+        current_plot.set_ydata(ys)
+    
+    artist_list = list(param_dict.values())
+    return artist_list[0], artist_list[1], artist_list[2], artist_list[3], artist_list[4], artist_list[5]
+        
+        # current_param_val = float(most_recent[0][i])
+
+        # data_stream = current_plot.incoming_data
+        # time_stream = current_plot.tList
+        # data_stream.insert(0, most_recent[0][i])
+        # #time_f = datetime.strptime(most_recent[0][0], "%m/%d/%Y %H:%M:%S")
+        # time_f = datetime.datetime.fromtimestamp(most_recent[0][0])
+        # time_stream.insert(0, time_f)
+        # if len(data_stream) < 20: #graph updates, growing to show 20 points
+        #     current_plot.make_plot()
+        # else:                      #there are 20 points and more available, so animation occurs
+        #     data_stream.pop()
+        #     time_stream.pop()
+        #     current_plot.make_plot()
+
+# def initialize_plots(): #intiailizes plots...
+# global initialize_plots
+# try:
+#     most_recent = reader.query_by_num(table="SensorData", num=100) #initializes plot up to 20 if possible if possible
+#     for i, param in enumerate(param_list, 1):
+#         tList = []
+#         most_recent_any_size = []
+#         for j in range(len(most_recent)):
+#             #time_f = datetime.strptime(most_recent[j][0], "%m/%d/%Y %H:%M:%S")
+#             time_f = datetime.datetime.fromtimestamp(most_recent[j][0])
+#             tList.append(time_f)
+#             most_recent_any_size.append(most_recent[j][i])
+
+#         subplot = f.add_subplot(6, 2, i)  # sharex?
+#         x_ax = f.get_axes()
+        
+#         current_plot = Sensor_Plot(subplot, tList, x_ax[i-1], param_ylim[i-1], param, most_recent_any_size, 'b')
+#         param_dict[param] = current_plot
+#         current_plot.make_plot()
+                
+# except: #if there is no data points available to plot, initialize the subplots
+#     for i, param in enumerate(param_list, 1):
+#         subplot = f.add_subplot(6, 2, i)
+#         x_ax = f.get_axes()
+#         current_plot = Sensor_Plot(subplot, [], x_ax[i-1], param_ylim[i-1], param, [], 'b')
+#         param_dict[param] = current_plot
+#         #current_plot.make_plot()
+# reader.commit()
+# initialize_plots = _plots_initialized
 
 ###ANIMATE FUNCTION, REMOVE LAST ITEM FROM MOST_RECENT_ANY LIST AND INSERT FRESHLY CALLED VALUE TO BE FIRST IN LIST
-def animate(ii):
+# def animate(ii):
 
-    while True:
-        most_recent_time_graphed = param_dict[param_list[0]] #first, pulls up first plot
-        most_recent = reader.query_by_num(table="SensorData", num=1)
-        reader.commit()         #if identical, do not animate
-        #then checks that plot's time list
-        if  (len(most_recent) == 0):
-            break
+#     while True:
+#         most_recent_time_graphed = param_dict[param_list[0]] #first, pulls up first plot
+#         most_recent = reader.query_by_num(table="SensorData", num=1)
+#         reader.commit()         #if identical, do not animate
+#         #then checks that plot's time list
+#         if  (len(most_recent) == 0):
+#             break
         
-        #time_reader = datetime.strptime(most_recent[0][0], "%m/%d/%Y %H:%M:%S")
-        time_reader = datetime.datetime.fromtimestamp(most_recent[0][0])
-        if (len(most_recent_time_graphed.tList) != 0) and (time_reader == most_recent_time_graphed.tList[0]):
-            for i, param in enumerate(param_list, 1):
-                current_text = live_dict[param]
-                current_text.label.config(text=most_recent[0][i], fg="black", bg="white")
-            break #checks if the timestamp is exactly the same as prior, i.e. no new data points have been logged in this frame
-        #do I have to add an else?
+#         #time_reader = datetime.strptime(most_recent[0][0], "%m/%d/%Y %H:%M:%S")
+#         time_reader = datetime.datetime.fromtimestamp(most_recent[0][0])
+#         if (len(most_recent_time_graphed.tList) != 0) and (time_reader == most_recent_time_graphed.tList[0]):
+#             for i, param in enumerate(param_list, 1):
+#                 current_text = live_dict[param]
+#                 current_text.label.config(text=most_recent[0][i], fg="black", bg="white")
+#             break #checks if the timestamp is exactly the same as prior, i.e. no new data points have been logged in this frame
+#         #do I have to add an else?
     
-        else:
-            config_settings = csv_read()
-            c0, c1, c2 = config_dict['enable_text'], config_dict['num_config'], config_dict['provider_config']
-            c3, c4, c5 = config_dict['email_config'], config_dict['upper_config'], config_dict['lower_config']
-            for i, key in enumerate(param_dict, 1):
-                current_plot = param_dict[key]
-                current_param_val = float(most_recent[0][i])
-                current_text = live_dict[key] #update to live text data summary
-                if current_param_val > float(config_settings[c4][i-1]) or current_param_val < float(config_settings[c5][i-1]):
-                    #only send text if enable_text is True
-                    if config_settings[c0] == [str(True)]:
-                    ###sends text if new problem arises or every 5  minutes
-                        if allIsGood[key] and Minute[key] == None:
-                            print('new problem')
-                            Minute[key] = datetime.now().minute
-                            minuta[key] = Minute[key]
-                            pCheck(float(config_settings[c4][i-1]),float(config_settings[c5][i-1]),key,current_param_val,config_settings[c1],config_settings[c2]) #uncomment to test emergency texts
-                        elif allIsGood[key] == False and abs(Minute[key] - datetime.now().minute) % 5 == 0 and not (minuta[key] == datetime.now().minute):
-                            print('same problem')
-                            minuta[key] = datetime.now().minute
-                            pCheck(float(config_settings[c4][i-1]),float(config_settings[c5][i-1]),key,current_param_val,config_settings[c1],config_settings[c2]) #uncomment to test emergency texts
-                            #pass
+#         else:
+#             config_settings = csv_read()
+#             c0, c1, c2 = config_dict['enable_text'], config_dict['num_config'], config_dict['provider_config']
+#             c3, c4, c5 = config_dict['email_config'], config_dict['upper_config'], config_dict['lower_config']
+#             for i, key in enumerate(param_dict, 1):
+#                 current_plot = param_dict[key]
+#                 current_param_val = float(most_recent[0][i])
+#                 current_text = live_dict[key] #update to live text data summary
+#                 if current_param_val > float(config_settings[c4][i-1]) or current_param_val < float(config_settings[c5][i-1]):
+#                     #only send text if enable_text is True
+#                     if config_settings[c0] == [str(True)]:
+#                     ###sends text if new problem arises or every 5  minutes
+#                         if allIsGood[key] and Minute[key] == None:
+#                             print('new problem')
+#                             Minute[key] = datetime.now().minute
+#                             minuta[key] = Minute[key]
+#                             pCheck(float(config_settings[c4][i-1]),float(config_settings[c5][i-1]),key,current_param_val,config_settings[c1],config_settings[c2]) #uncomment to test emergency texts
+#                         elif allIsGood[key] == False and abs(Minute[key] - datetime.now().minute) % 5 == 0 and not (minuta[key] == datetime.now().minute):
+#                             print('same problem')
+#                             minuta[key] = datetime.now().minute
+#                             pCheck(float(config_settings[c4][i-1]),float(config_settings[c5][i-1]),key,current_param_val,config_settings[c1],config_settings[c2]) #uncomment to test emergency texts
+#                             #pass
                         
-                        #setting the parameter to not ok
-                        allIsGood[key] = False
+#                         #setting the parameter to not ok
+#                         allIsGood[key] = False
 
-                    current_text.label.config(text=most_recent[0][i], fg="red", bg="white")
-                    current_plot.plot_color = 'r'
+#                     current_text.label.config(text=most_recent[0][i], fg="red", bg="white")
+#                     current_plot.plot_color = 'r'
                 
-                else:
-                    current_text.label.config(text=most_recent[0][i], fg="black", bg="white")
-                    current_plot.plot_color = 'g'
+#                 else:
+#                     current_text.label.config(text=most_recent[0][i], fg="black", bg="white")
+#                     current_plot.plot_color = 'g'
                     
-                    ###setting the parameter back to true and sending "ok" text 
-                    if allIsGood[key] == False:
-                        Minute[key] = None
-                        allOk(key,config_settings[c1],config_settings[c2])
-                        pass
+#                     ###setting the parameter back to true and sending "ok" text 
+#                     if allIsGood[key] == False:
+#                         Minute[key] = None
+#                         allOk(key,config_settings[c1],config_settings[c2])
+#                         pass
                     
-                    allIsGood[key] = True
+#                     allIsGood[key] = True
 
-                data_stream = current_plot.incoming_data
-                time_stream = current_plot.tList
-                data_stream.insert(0, most_recent[0][i])
-                #time_f = datetime.strptime(most_recent[0][0], "%m/%d/%Y %H:%M:%S")
-                time_f = datetime.datetime.fromtimestamp(most_recent[0][0])
-                time_stream.insert(0, time_f)
-                if len(data_stream) < 20: #graph updates, growing to show 20 points
-                    current_plot.make_plot()
-                else:                      #there are 20 points and more available, so animation occurs
-                    data_stream.pop()
-                    time_stream.pop()
-                    current_plot.make_plot()
-            break
+#                 data_stream = current_plot.incoming_data
+#                 time_stream = current_plot.tList
+#                 data_stream.insert(0, most_recent[0][i])
+#                 #time_f = datetime.strptime(most_recent[0][0], "%m/%d/%Y %H:%M:%S")
+#                 time_f = datetime.datetime.fromtimestamp(most_recent[0][0])
+#                 time_stream.insert(0, time_f)
+#                 if len(data_stream) < 20: #graph updates, growing to show 20 points
+#                     current_plot.make_plot()
+#                 else:                      #there are 20 points and more available, so animation occurs
+#                     data_stream.pop()
+#                     time_stream.pop()
+#                     current_plot.make_plot()
+#             break
 
                            
 #initialization
@@ -660,7 +704,7 @@ class VideoStream(tk.Frame):
         self.imagel.pack(pady=10, padx=10)
 
         #initialize button with a picture
-        frame = self.get_frame()
+        '''frame = self.get_frame()
         cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(cv2image)
         imgtk = ImageTk.PhotoImage(image=img)
@@ -690,7 +734,7 @@ class VideoStream(tk.Frame):
             imgtk = ImageTk.PhotoImage(image=img)
             self.imagel.imgtk = imgtk
             self.imagel.configure(image=imgtk)
-            self.imagel.after(15, self.update)
+            self.imagel.after(15, self.update)'''
             
 class ControlPanel(tk.Frame):
     def __init__(self, parent, controller):
@@ -1313,6 +1357,6 @@ app.geometry('1917x970')
 #this makes app full screen, not sure if it's good for us or not
 #app.attributes('-fullscreen', True)
 #update animation first
-ani = animation.FuncAnimation(f, animate, interval=5000)
+ani = animation.FuncAnimation(f, animate, interval=50, fargs=(ys,), blit=True)
 #mainloop
 app.mainloop()
