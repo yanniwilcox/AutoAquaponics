@@ -119,7 +119,7 @@ param_list = ['pH', 'TDS (ppm)', 'Rela. Humidity (%)', 'Air Temp (\N{DEGREE SIGN
 param_ylim = [(5, 9), (0, 1500), (20, 80), (15, 35), (15, 35), (0, 61)]
 #param_list = ['pH', 'Water Temp', 'Air Temp', 'Nitrate', 'TDS', 'DO', 'Ammonia', 'Phosphate', 'Humidity', 'Flow Rate', 'Water Level']
 live_dict = {}
-ys = [y for y in range(20)]
+all_data_stream = [[0] * 20, [0] * 20, [0] * 20, [0] * 20, [0] * 20, [0] * 20]
 
 ########################
 #this is for texting
@@ -141,30 +141,23 @@ class Live_Text:
         self.label = label
     
 class Sensor_Plot:
-    def __init__(self, plot, tList, x_ax, ylim, param, incoming_data, plot_color):
+    def __init__(self, plot, ylim, param, incoming_data, plot_color):
         self.plot = plot
-        self.tList = tList
-        self.x_ax = x_ax
         self.ylim = ylim
         self.param = param
         self.incoming_data = incoming_data #<- graph is bound by incoming data and Data Summary Table displays most recent value 20 of them
         self.plot_color = plot_color #initially 'b' for all
+
+        self.plot.clear()
+        self.plot.set_xlabel('Time')
+        self.plot.set_ylabel(self.param)
+        self.plot.set_ylim(self.ylim)
         
     def make_plot(self):
         self.plot.clear()
         self.plot.set_xlabel('Time')
         self.plot.set_ylabel(self.param)
         self.plot.set_ylim(self.ylim)
-
-        self.x_ax.xaxis_date()
-        self.x_ax.xaxis.set_major_formatter(mdates.DateFormatter('%a %I:%M:%S %p'))
-        
-        [tk.set_visible(True) for tk in self.x_ax.get_xticklabels()]
-        [label.set_rotation(10) for label in self.x_ax.xaxis.get_ticklabels()] #slant the x axis tick labels for extra coolness
-
-        if len(self.tList) > 4:
-            self.x_ax.set_xlim(self.tList[-2], self.tList[0])
-        self.x_ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins = 4))
         
         self.plot.fill_between(self.tList, self.incoming_data, #where=(self.incoming_data > [0]*len(self.incoming_data))
                                facecolor=self.plot_color, edgecolor=self.plot_color, alpha=0.5) #blue @initilization
@@ -174,8 +167,11 @@ def initialize_plots(): #intiailizes plots...
     xs = [x for x in range(20)]
     for i, param in enumerate(param_list, 1):
         subplot = f.add_subplot(6, 2, i)
-        subplot.set_ylim([0,500])
-        current_plot, = subplot.plot(xs, ys)
+        subplot.set_xlabel('Time (sec ago)')
+        subplot.set_ylabel(param)
+        subplot.set_ylim(param_ylim[i-1])
+        current_plot, = subplot.plot(xs, all_data_stream[i-1])
+        subplot.set_xticks(ticks=[2 * x for x in range(10)], labels=[5 * x for x in range(19, -1, -2)])
         param_dict[param] = current_plot
     reader.commit()
     initialize_plots = _plots_initialized
@@ -186,29 +182,22 @@ initialize_plots()
 
 
 def animate(ii, ys):
-    ys.append(ys[-1]+1)
-    ys.pop(0)
     
     # most_recent_time_graphed = param_dict[param_list[0]] #first, pulls up first plot
-    # most_recent = reader.query_by_num(table="SensorData", num=1)
+    most_recent = reader.query_by_num(table="SensorData", num=1)
     
     # config_settings = csv_read()
     # c0, c1, c2 = config_dict['enable_text'], config_dict['num_config'], config_dict['provider_config']
     # c3, c4, c5 = config_dict['email_config'], config_dict['upper_config'], config_dict['lower_config']
-    
 
     for i, key in enumerate(param_dict, 1):
         current_plot = param_dict[key]
-        current_plot.set_ydata(ys)
-    
-    artist_list = list(param_dict.values())
-    return artist_list[0], artist_list[1], artist_list[2], artist_list[3], artist_list[4], artist_list[5]
-        
-        # current_param_val = float(most_recent[0][i])
+        data_stream = all_data_stream[i-1]
 
-        # data_stream = current_plot.incoming_data
+        current_param_val = float(most_recent[0][i])
+        #data_stream = current_plot.incoming_data
         # time_stream = current_plot.tList
-        # data_stream.insert(0, most_recent[0][i])
+        data_stream.append(most_recent[0][i])
         # #time_f = datetime.strptime(most_recent[0][0], "%m/%d/%Y %H:%M:%S")
         # time_f = datetime.datetime.fromtimestamp(most_recent[0][0])
         # time_stream.insert(0, time_f)
@@ -216,8 +205,44 @@ def animate(ii, ys):
         #     current_plot.make_plot()
         # else:                      #there are 20 points and more available, so animation occurs
         #     data_stream.pop()
-        #     time_stream.pop()
-        #     current_plot.make_plot()
+        data_stream.pop(0)
+            # time_stream.pop()
+            # current_plot.make_plot()
+
+        current_plot.set_ydata(data_stream)
+        #all_data_stream[i-1] = data_stream
+
+    artist_list = list(param_dict.values())
+    return artist_list[0], artist_list[1], artist_list[2], artist_list[3], artist_list[4], artist_list[5]
+
+# class Sensor_Plot:
+#     def __init__(self, plot, tList, x_ax, ylim, param, incoming_data, plot_color):
+#         self.plot = plot
+#         self.tList = tList
+#         self.x_ax = x_ax
+#         self.ylim = ylim
+#         self.param = param
+#         self.incoming_data = incoming_data #<- graph is bound by incoming data and Data Summary Table displays most recent value 20 of them
+#         self.plot_color = plot_color #initially 'b' for all
+        
+#     def make_plot(self):
+#         self.plot.clear()
+#         self.plot.set_xlabel('Time')
+#         self.plot.set_ylabel(self.param)
+#         self.plot.set_ylim(self.ylim)
+
+#         self.x_ax.xaxis_date()
+#         self.x_ax.xaxis.set_major_formatter(mdates.DateFormatter('%a %I:%M:%S %p'))
+        
+#         [tk.set_visible(True) for tk in self.x_ax.get_xticklabels()]
+#         [label.set_rotation(10) for label in self.x_ax.xaxis.get_ticklabels()] #slant the x axis tick labels for extra coolness
+
+#         if len(self.tList) > 4:
+#             self.x_ax.set_xlim(self.tList[-2], self.tList[0])
+#         self.x_ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins = 4))
+        
+#         self.plot.fill_between(self.tList, self.incoming_data, #where=(self.incoming_data > [0]*len(self.incoming_data))
+#                                facecolor=self.plot_color, edgecolor=self.plot_color, alpha=0.5) #blue @initilization
 
 # def initialize_plots(): #intiailizes plots...
 # global initialize_plots
@@ -1357,6 +1382,6 @@ app.geometry('1917x970')
 #this makes app full screen, not sure if it's good for us or not
 #app.attributes('-fullscreen', True)
 #update animation first
-ani = animation.FuncAnimation(f, animate, interval=50, fargs=(ys,), blit=True)
+ani = animation.FuncAnimation(f, animate, interval=5000, fargs=(all_data_stream,), blit=True)
 #mainloop
 app.mainloop()
