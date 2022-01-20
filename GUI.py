@@ -42,6 +42,7 @@ from sendtext import pCheck
 from sendtext import allOk
 from main import user_settings
 config_path, db_path, img_path = user_settings()
+import numpy as np
 
 # returns the current csv in a 2D list, where list[i][j] is the jth element of the ith row of the list
 def csv_read():
@@ -119,7 +120,8 @@ param_list = ['pH', 'TDS (ppm)', 'Rela. Humidity (%)', 'Air Temp (\N{DEGREE SIGN
 param_ylim = [(5, 9), (0, 1500), (20, 80), (15, 35), (15, 35), (0, 61)]
 #param_list = ['pH', 'Water Temp', 'Air Temp', 'Nitrate', 'TDS', 'DO', 'Ammonia', 'Phosphate', 'Humidity', 'Flow Rate', 'Water Level']
 live_dict = {}
-all_data_stream = [[0] * 20, [0] * 20, [0] * 20, [0] * 20, [0] * 20, [0] * 20]
+all_data_stream = np.empty((34560, 6))
+all_data_stream[:] = np.NaN
 
 ########################
 #this is for texting
@@ -164,14 +166,25 @@ class Sensor_Plot:
 
 def initialize_plots(): #intiailizes plots...
     global initialize_plots
-    xs = [x for x in range(20)]
+    global all_data_stream
+    most_recent = reader.query_by_num(table="SensorData", num=34560)
+    for row in most_recent:
+        diff = int((time.time()-row[0])/5)
+        if diff >= 34560:
+            break
+        row = list(row)
+        row = row[1:]
+        all_data_stream[diff] = row
+    all_data_stream = np.flip(all_data_stream, axis=0)
+    xs = [x for x in range(34560)]
     for i, param in enumerate(param_list, 1):
         subplot = f.add_subplot(6, 2, i)
-        subplot.set_xlabel('Time (sec ago)')
+        subplot.set_xlabel('Time since measurement (hours)')
         subplot.set_ylabel(param)
         subplot.set_ylim(param_ylim[i-1])
-        current_plot, = subplot.plot(xs, all_data_stream[i-1])
-        subplot.set_xticks(ticks=[2 * x for x in range(10)], labels=[5 * x for x in range(19, -1, -2)])
+        subplot.set_xlim([0,34560])
+        current_plot, = subplot.plot(xs, all_data_stream[:,i-1])
+        subplot.set_xticks([4320*x for x in range(9)], [6*(8-x) for x in range(9)])
         param_dict[param] = current_plot
     reader.commit()
     initialize_plots = _plots_initialized
@@ -185,19 +198,20 @@ def animate(ii, ys):
     
     # most_recent_time_graphed = param_dict[param_list[0]] #first, pulls up first plot
     most_recent = reader.query_by_num(table="SensorData", num=1)
-    
     # config_settings = csv_read()
     # c0, c1, c2 = config_dict['enable_text'], config_dict['num_config'], config_dict['provider_config']
     # c3, c4, c5 = config_dict['email_config'], config_dict['upper_config'], config_dict['lower_config']
-
+    to_append = list(most_recent[0])[1:]
+    global all_data_stream
+    all_data_stream = np.append(all_data_stream[1:], [to_append], axis=0)
     for i, key in enumerate(param_dict, 1):
         current_plot = param_dict[key]
-        data_stream = all_data_stream[i-1]
+        # data_stream = all_data_stream[:,i-1]
 
-        current_param_val = float(most_recent[0][i])
+        # current_param_val = float(most_recent[0][i])
         #data_stream = current_plot.incoming_data
         # time_stream = current_plot.tList
-        data_stream.append(most_recent[0][i])
+        # data_stream.append(most_recent[0][i])
         # #time_f = datetime.strptime(most_recent[0][0], "%m/%d/%Y %H:%M:%S")
         # time_f = datetime.datetime.fromtimestamp(most_recent[0][0])
         # time_stream.insert(0, time_f)
@@ -205,12 +219,15 @@ def animate(ii, ys):
         #     current_plot.make_plot()
         # else:                      #there are 20 points and more available, so animation occurs
         #     data_stream.pop()
-        data_stream.pop(0)
+        # data_stream.pop(0)
             # time_stream.pop()
             # current_plot.make_plot()
-
-        current_plot.set_ydata(data_stream)
+        current_plot.set_ydata(all_data_stream[:,i-1])
         #all_data_stream[i-1] = data_stream
+    
+    for i, param in enumerate(param_list, 1):
+        current_text = live_dict[param]
+        current_text.label.config(text=most_recent[0][i], fg="black", bg="white")
 
     artist_list = list(param_dict.values())
     return artist_list[0], artist_list[1], artist_list[2], artist_list[3], artist_list[4], artist_list[5]
