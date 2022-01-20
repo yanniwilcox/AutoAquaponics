@@ -120,7 +120,11 @@ param_list = ['pH', 'TDS (ppm)', 'Rela. Humidity (%)', 'Air Temp (\N{DEGREE SIGN
 param_ylim = [(5, 9), (0, 1500), (20, 80), (15, 35), (15, 35), (0, 61)]
 #param_list = ['pH', 'Water Temp', 'Air Temp', 'Nitrate', 'TDS', 'DO', 'Ammonia', 'Phosphate', 'Humidity', 'Flow Rate', 'Water Level']
 live_dict = {}
-all_data_stream = np.empty((34560, 6))
+
+# change this to modify how frequently data is plotted (plot every PLOTTING_PERIOD seconds):
+PLOTTING_PERIOD = 1
+DS_SIZE = int(48 * 60 * (60/PLOTTING_PERIOD))
+all_data_stream = np.empty((DS_SIZE, 6))
 all_data_stream[:] = np.NaN
 
 ########################
@@ -167,24 +171,24 @@ class Sensor_Plot:
 def initialize_plots(): #intiailizes plots...
     global initialize_plots
     global all_data_stream
-    most_recent = reader.query_by_num(table="SensorData", num=34560)
+    most_recent = reader.query_by_num(table="SensorData", num=DS_SIZE)
     for row in most_recent:
-        diff = int((time.time()-row[0])/5)
-        if diff >= 34560:
+        diff = int((time.time()-row[0])/PLOTTING_PERIOD)
+        if diff >= DS_SIZE:
             break
         row = list(row)
         row = row[1:]
         all_data_stream[diff] = row
     all_data_stream = np.flip(all_data_stream, axis=0)
-    xs = [x for x in range(34560)]
+    xs = [x for x in range(DS_SIZE)]
     for i, param in enumerate(param_list, 1):
         subplot = f.add_subplot(6, 2, i)
         subplot.set_xlabel('Time since measurement (hours)')
         subplot.set_ylabel(param)
         subplot.set_ylim(param_ylim[i-1])
-        subplot.set_xlim([0,34560])
+        subplot.set_xlim([0,DS_SIZE])
         current_plot, = subplot.plot(xs, all_data_stream[:,i-1])
-        subplot.set_xticks([4320*x for x in range(9)], [6*(8-x) for x in range(9)])
+        subplot.set_xticks([(DS_SIZE/8)*x for x in range(9)], [6*(8-x) for x in range(9)])
         param_dict[param] = current_plot
     reader.commit()
     initialize_plots = _plots_initialized
@@ -204,30 +208,51 @@ def animate(ii, ys):
     to_append = list(most_recent[0])[1:]
     global all_data_stream
     all_data_stream = np.append(all_data_stream[1:], [to_append], axis=0)
+    config_settings = csv_read()
+    c0, c1, c2 = config_dict['enable_text'], config_dict['num_config'], config_dict['provider_config']
+    c3, c4, c5 = config_dict['email_config'], config_dict['upper_config'], config_dict['lower_config']
     for i, key in enumerate(param_dict, 1):
         current_plot = param_dict[key]
-        # data_stream = all_data_stream[:,i-1]
-
-        # current_param_val = float(most_recent[0][i])
-        #data_stream = current_plot.incoming_data
-        # time_stream = current_plot.tList
-        # data_stream.append(most_recent[0][i])
-        # #time_f = datetime.strptime(most_recent[0][0], "%m/%d/%Y %H:%M:%S")
-        # time_f = datetime.datetime.fromtimestamp(most_recent[0][0])
-        # time_stream.insert(0, time_f)
-        # if len(data_stream) < 20: #graph updates, growing to show 20 points
-        #     current_plot.make_plot()
-        # else:                      #there are 20 points and more available, so animation occurs
-        #     data_stream.pop()
-        # data_stream.pop(0)
-            # time_stream.pop()
-            # current_plot.make_plot()
         current_plot.set_ydata(all_data_stream[:,i-1])
-        #all_data_stream[i-1] = data_stream
+        
+        current_param_val = float(to_append[i-1])
+        current_text = live_dict[key]
+        if current_param_val > float(config_settings[c4][i-1]) or current_param_val < float(config_settings[c5][i-1]):
+            #only send text if enable_text is True
+            if config_settings[c0] == [str(True)]:
+                ###sends text if new problem arises or every 5  minutes
+                if allIsGood[key] and Minute[key] == None:
+                    print('new problem')
+                    Minute[key] = datetime.now().minute
+                    minuta[key] = Minute[key]
+                    pCheck(float(config_settings[c4][i-1]),float(config_settings[c5][i-1]),key,current_param_val,config_settings[c1],config_settings[c2]) #uncomment to test emergency texts
+                elif allIsGood[key] == False and abs(Minute[key] - datetime.now().minute) % 5 == 0 and not (minuta[key] == datetime.now().minute):
+                    print('same problem')
+                    minuta[key] = datetime.now().minute
+                    pCheck(float(config_settings[c4][i-1]),float(config_settings[c5][i-1]),key,current_param_val,config_settings[c1],config_settings[c2]) #uncomment to test emergency texts
+                    #pass
+                        
+                #setting the parameter to not ok
+                allIsGood[key] = False
+
+            current_text.label.config(text=most_recent[0][i], fg="red", bg="white")
+            current_plot.set_color('r')
+            
+        else:
+            current_text.label.config(text=most_recent[0][i], fg="black", bg="white")
+            current_plot.set_color('g')
+                
+            ###setting the parameter back to true and sending "ok" text 
+            if allIsGood[key] == False:
+                Minute[key] = None
+                allOk(key,config_settings[c1],config_settings[c2])
+                pass
+                
+            allIsGood[key] = True
     
-    for i, param in enumerate(param_list, 1):
-        current_text = live_dict[param]
-        current_text.label.config(text=most_recent[0][i], fg="black", bg="white")
+    #for i, param in enumerate(param_list, 1):
+     #   current_text = live_dict[param]
+      #  current_text.label.config(text=most_recent[0][i], fg="black", bg="white")
 
     artist_list = list(param_dict.values())
     return artist_list[0], artist_list[1], artist_list[2], artist_list[3], artist_list[4], artist_list[5]
@@ -1399,6 +1424,6 @@ app.geometry('1917x970')
 #this makes app full screen, not sure if it's good for us or not
 #app.attributes('-fullscreen', True)
 #update animation first
-ani = animation.FuncAnimation(f, animate, interval=5000, fargs=(all_data_stream,), blit=True)
+ani = animation.FuncAnimation(f, animate, interval=1000, fargs=(all_data_stream,), blit=True)
 #mainloop
 app.mainloop()
